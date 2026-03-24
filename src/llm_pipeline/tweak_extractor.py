@@ -115,6 +115,7 @@ class TweakExtractor:
     ) -> tuple[ModificationObject, Review] | tuple[None, None]:
         """
         Extract modification from a single randomly selected review.
+        NOTE: This method is deprecated. Use extract_all_modifications instead.
 
         Args:
             reviews: List of reviews to choose from
@@ -143,6 +144,62 @@ class TweakExtractor:
         else:
             logger.warning("Failed to extract modification from selected review")
             return None, None
+
+    def extract_all_modifications(
+        self, reviews: list[Review], recipe: Recipe, min_rating: int = 4
+    ) -> list[tuple[ModificationObject, Review]]:
+        """
+        Extract modifications from all reviews that meet quality criteria.
+
+        Args:
+            reviews: List of reviews to process
+            recipe: Original recipe being modified
+            min_rating: Minimum star rating (default: 4)
+
+        Returns:
+            List of tuples: (ModificationObject, source_Review) for all successful extractions
+        """
+        # Filter to reviews with modifications AND minimum rating
+        quality_reviews = [
+            r for r in reviews
+            if r.has_modification and r.rating is not None and r.rating >= min_rating
+        ]
+
+        if not quality_reviews:
+            logger.warning(f"No reviews with modifications and rating >= {min_rating} found")
+            return []
+
+        logger.info(
+            f"Found {len(quality_reviews)} high-quality reviews "
+            f"(rating >= {min_rating}) with modifications out of {len(reviews)} total reviews"
+        )
+
+        successful_extractions = []
+
+        # Extract modifications from all qualifying reviews
+        for review in quality_reviews:
+            logger.debug(f"Processing review with {review.rating}★ rating: {review.text[:80]}...")
+
+            modification = self.extract_modification(review, recipe)
+
+            if modification:
+                successful_extractions.append((modification, review))
+                logger.info(
+                    f"✓ Successfully extracted {modification.modification_type} "
+                    f"from {review.rating}★ review"
+                )
+            else:
+                logger.warning(
+                    f"✗ Failed to extract modification from {review.rating}★ review"
+                )
+
+        logger.info(
+            f"Successfully extracted {len(successful_extractions)} modifications "
+            f"from {len(quality_reviews)} high-quality reviews "
+            f"({len(successful_extractions)/len(quality_reviews)*100:.1f}% success rate)"
+        )
+
+        return successful_extractions
 
     def test_extraction(
         self, review_text: str, recipe_data: dict
